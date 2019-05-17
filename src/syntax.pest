@@ -1,0 +1,9 @@
+program = { SOI ~ function ~ EOI }
+function = { type_specifier ~ identifier ~ "(" ~ ")" ~ "{" ~ statement ~ "}" }
+statement = @{ "return" ~ WHITESPACE+ ~ expression ~ WHITESPACE* ~ ";" }
+expression = { ASCII_DIGIT+ }
+identifier = { (ASCII_ALPHANUMERIC | "_")+ }
+type_specifier = { "int" }
+
+WHITESPACE = _{ " " | "\t" | "\n" }
+COMMENT = _{ "/*" ~ (!"*/" ~ ANY)* ~ "*/" }
