@@ -2,7 +2,9 @@ use crate::codegen::*;
 use combine::char::{alpha_num, digit, spaces, string};
 use combine::easy::Errors;
 use combine::stream::PointerOffset;
-use combine::{any, between, choice, eof, many1, sep_end_by1, token, Parser, Stream, ParseError};
+use combine::{
+    any, between, choice, eof, many, many1, sep_end_by1, token, ParseError, Parser, Stream,
+};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
@@ -18,6 +20,9 @@ pub enum Token {
     Minus,
     BinaryNot,
     LogicalNot,
+    Add,
+    Multiply,
+    Divide,
 }
 
 pub fn lex(text: &str) -> Result<Vec<Token>, Errors<char, &str, PointerOffset>> {
@@ -31,6 +36,9 @@ pub fn lex(text: &str) -> Result<Vec<Token>, Errors<char, &str, PointerOffset>> 
             token('-').map(|_| Token::Minus),
             token('!').map(|_| Token::LogicalNot),
             token('~').map(|_| Token::BinaryNot),
+            token('+').map(|_| Token::Add),
+            token('*').map(|_| Token::Multiply),
+            token('/').map(|_| Token::Divide),
             string("int").map(|_| Token::Int),
             string("return").map(|_| Token::Return),
             many1::<String, _>(digit()).map(|i| Token::Integer(i.parse().unwrap())),
@@ -70,12 +78,16 @@ pub fn parse(
     Ok(ast.0)
 }
 
-parser! { fn expression[I]()(I) -> Expression where [I: Stream<Item = Token>] { expression_() }}
-fn expression_<I>() -> impl Parser<Input = I, Output = Expression>
+fn factor<I>() -> impl Parser<Input = I, Output = Expression>
 where
     I: Stream<Item = Token>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
+    let literal = any().map(|t| match t {
+        Token::Integer(i) => Expression::Literal(i),
+        _ => panic!("Invalid expression"),
+    });
+
     let unary_op = choice((
         token(Token::Minus),
         token(Token::BinaryNot),
@@ -86,13 +98,49 @@ where
         Token::Minus => Expression::Minus(Box::new(e)),
         Token::BinaryNot => Expression::BinaryNot(Box::new(e)),
         Token::LogicalNot => Expression::LogicalNot(Box::new(e)),
-        _ => panic!("Invalid operator"),
-    });
-
-    let literal = any().map(|t| match t {
-        Token::Integer(i) => Expression::Literal(i),
-        _ => panic!("Invalid expression"),
+        _ => panic!("Invalid unary operator"),
     });
 
     choice((unary_op, literal))
+}
+
+fn term<I>() -> impl Parser<Input = I, Output = Expression>
+where
+    I: Stream<Item = Token>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    factor()
+        .and(many::<Vec<_>, _>(
+            choice((token(Token::Multiply), token(Token::Divide))).and(factor()),
+        ))
+        .map(|(first, remainder)| {
+            remainder
+                .into_iter()
+                .fold(first, |prev, (op, next)| match op {
+                    Token::Multiply => Expression::Multiply(Box::new(prev), Box::new(next)),
+                    Token::Divide => Expression::Divide(Box::new(prev), Box::new(next)),
+                    _ => panic!("Invalid binary operator"),
+                })
+        })
+}
+
+parser! { fn expression[I]()(I) -> Expression where [I: Stream<Item = Token>] { expression_() }}
+fn expression_<I>() -> impl Parser<Input = I, Output = Expression>
+where
+    I: Stream<Item = Token>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    term()
+        .and(many::<Vec<_>, _>(
+            choice((token(Token::Add), token(Token::Minus))).and(term()),
+        ))
+        .map(|(first, remainder)| {
+            remainder
+                .into_iter()
+                .fold(first, |prev, (op, next)| match op {
+                    Token::Add => Expression::Add(Box::new(prev), Box::new(next)),
+                    Token::Minus => Expression::Subtract(Box::new(prev), Box::new(next)),
+                    _ => panic!("Invalid binary operator"),
+                })
+        })
 }
