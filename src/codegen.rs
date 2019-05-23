@@ -1,3 +1,12 @@
+use std::io::{self, Write};
+
+pub fn codegen(program: &[Function], stream: &mut impl Write) -> io::Result<()> {
+    for function in program {
+        function.generate(stream)?;
+    }
+    Ok(())
+}
+
 #[derive(Debug)]
 pub struct Function {
     name: String,
@@ -9,11 +18,17 @@ impl Function {
         Self { name, statements }
     }
 
-    pub fn generate(&self) {
-        println!(".globl {}\n{}:", self.name, self.name);
+    pub fn generate(&self, stream: &mut impl Write) -> io::Result<()> {
+        writeln!(
+            stream,
+            ".globl {}\n\
+             {}:",
+            self.name, self.name
+        )?;
         for s in self.statements.iter() {
-            s.generate();
+            s.generate(stream)?;
         }
+        Ok(())
     }
 }
 
@@ -23,13 +38,14 @@ pub enum Statement {
 }
 
 impl Statement {
-    pub fn generate(&self) {
+    pub fn generate(&self, stream: &mut impl Write) -> io::Result<()> {
         match self {
             Statement::Return(e) => {
-                e.generate();
-                println!("ret");
+                e.generate(stream)?;
+                writeln!(stream, "ret")?;
             }
         }
+        Ok(())
     }
 }
 
@@ -46,53 +62,71 @@ pub enum Expression {
 }
 
 impl Expression {
-    pub fn generate(&self) {
+    pub fn generate(&self, stream: &mut impl Write) -> io::Result<()> {
         match self {
             Expression::Literal(i) => {
-                println!("movq ${}, %rax", i);
+                writeln!(stream, "movq ${}, %rax", i)?;
             }
             Expression::Minus(e) => {
-                e.generate();
-                println!("neg %rax");
+                e.generate(stream)?;
+                writeln!(stream, "neg %rax")?;
             }
             Expression::BinaryNot(e) => {
-                e.generate();
-                println!("not %rax");
+                e.generate(stream)?;
+                writeln!(stream, "not %rax")?;
             }
             Expression::LogicalNot(e) => {
-                e.generate();
-                println!("cmpl $0, %rax\nmovq $0, %rax\nsete %al");
+                e.generate(stream)?;
+                writeln!(
+                    stream,
+                    "cmpl $0, %rax\n\
+                     movq $0, %rax\n\
+                     sete %al"
+                )?;
             }
             Expression::Subtract(e1, e2) => {
-                e1.generate();
-                println!("pushq %rax");
-                e2.generate();
-                println!("popq %rcx\nsubq %rcx, %rax");
+                e1.generate(stream)?;
+                writeln!(stream, "pushq %rax")?;
+                e2.generate(stream)?;
+                writeln!(
+                    stream,
+                    "popq %rcx\n\
+                     subq %rcx, %rax"
+                )?;
             }
             Expression::Add(e1, e2) => {
-                e1.generate();
-                println!("pushq %rax");
-                e2.generate();
-                println!("popq %rcx\naddq %rcx, %rax");
+                e1.generate(stream)?;
+                writeln!(stream, "pushq %rax")?;
+                e2.generate(stream)?;
+                writeln!(
+                    stream,
+                    "popq %rcx\n\
+                     addq %rcx, %rax"
+                )?;
             }
             Expression::Multiply(e1, e2) => {
-                e1.generate();
-                println!("pushq %rax");
-                e2.generate();
-                println!("popq %rcx\nimulq %rcx, %rax");
+                e1.generate(stream)?;
+                writeln!(stream, "pushq %rax")?;
+                e2.generate(stream)?;
+                writeln!(
+                    stream,
+                    "popq %rcx\n\
+                     imulq %rcx, %rax"
+                )?;
             }
             Expression::Divide(e1, e2) => {
-                e1.generate();
-                println!("pushq %rax");
-                e2.generate();
-                println!("movq $0, %rdx\nmovq %rax, %rcx\npopq %rax\nidivq %rcx");
+                e1.generate(stream)?;
+                writeln!(stream, "pushq %rax")?;
+                e2.generate(stream)?;
+                writeln!(
+                    stream,
+                    "movq $0, %rdx\n\
+                     movq %rax, %rcx\n\
+                     popq %rax\n\
+                     idivq %rcx"
+                )?;
             }
         }
-    }
-}
-
-pub fn codegen(program: &[Function]) {
-    for function in program {
-        function.generate();
+        Ok(())
     }
 }
