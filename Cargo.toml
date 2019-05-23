@@ -5,5 +5,4 @@ authors = ["IGI-111 <igi-111@protonmail.com>"]
 edition = "2018"
 
 [dependencies]
-pest = "2.1.1"
-pest_derive = "2.1.0"
+combine = "3.8.1"
