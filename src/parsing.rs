@@ -47,7 +47,15 @@ where
         _ => panic!("Invalid unary operator"),
     });
 
-    choice((unary_op, literal()))
+    choice((
+        unary_op,
+        literal(),
+        between(
+            token(Token::OpenParen),
+            token(Token::CloseParen),
+            expression(),
+        ),
+    ))
 }
 
 fn term<I>() -> impl Parser<Input = I, Output = Expression>
