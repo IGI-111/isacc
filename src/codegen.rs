@@ -79,7 +79,7 @@ impl Expression {
                 e.generate(stream)?;
                 writeln!(
                     stream,
-                    "cmpl $0, %rax\n\
+                    "cmpq $0, %rax\n\
                      movq $0, %rax\n\
                      sete %al"
                 )?;

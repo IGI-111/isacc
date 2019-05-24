@@ -1,65 +1,17 @@
 use crate::codegen::*;
-use combine::char::{alpha_num, digit, spaces, string};
-use combine::easy::Errors;
-use combine::stream::PointerOffset;
+use crate::error::CompilerError;
+use crate::lexing::*;
 use combine::{
-    any, between, choice, eof, many, many1, sep_end_by1, token, ParseError, Parser, Stream,
+    between, choice, many, many1, satisfy, sep_end_by1, token, ParseError, Parser, Stream,
 };
 
-#[derive(Debug, PartialEq, Clone)]
-pub enum Token {
-    OpenBrace,
-    CloseBrace,
-    OpenParen,
-    CloseParen,
-    Semicolon,
-    Int,
-    Return,
-    Identifier(String),
-    Integer(usize),
-    Minus,
-    BinaryNot,
-    LogicalNot,
-    Add,
-    Multiply,
-    Divide,
-}
-
-pub fn lex(text: &str) -> Result<Vec<Token>, Errors<char, &str, PointerOffset>> {
-    let mut lexer = sep_end_by1::<Vec<_>, _, _>(
-        choice((
-            token('{').map(|_| Token::OpenBrace),
-            token('}').map(|_| Token::CloseBrace),
-            token('(').map(|_| Token::OpenParen),
-            token(')').map(|_| Token::CloseParen),
-            token(';').map(|_| Token::Semicolon),
-            token('-').map(|_| Token::Minus),
-            token('!').map(|_| Token::LogicalNot),
-            token('~').map(|_| Token::BinaryNot),
-            token('+').map(|_| Token::Add),
-            token('*').map(|_| Token::Multiply),
-            token('/').map(|_| Token::Divide),
-            string("int").map(|_| Token::Int),
-            string("return").map(|_| Token::Return),
-            many1::<String, _>(digit()).map(|i| Token::Integer(i.parse().unwrap())),
-            many1::<String, _>(alpha_num()).map(|id| Token::Identifier(id)),
-        )),
-        spaces(),
-    )
-    .skip(eof());
-    let tokens = lexer.easy_parse(text)?.0;
-    Ok(tokens)
-}
-
-pub fn parse(
-    tokens: &[Token],
-) -> Result<Vec<Function>, Errors<Token, &[Token], combine::stream::PointerOffset>> {
+pub fn parse(tokens: &[Token]) -> Result<Vec<Function>, CompilerError> {
     let statement = token(Token::Return)
         .with(expression())
         .map(|e| Statement::Return(e));
 
     let function = token(Token::Int)
-        .with(any())
+        .with(identifier())
         .skip(token(Token::OpenParen))
         .skip(token(Token::CloseParen))
         .and(between(
@@ -67,15 +19,14 @@ pub fn parse(
             token(Token::CloseBrace),
             sep_end_by1::<Vec<_>, _, _>(statement, token(Token::Semicolon)),
         ))
-        .map(|(id, statements)| match id {
-            Token::Identifier(name) => Function::new(name, statements),
-            _ => panic!("Invalid identifier"),
-        });
+        .map(|(name, statements)| Function::new(name, statements));
 
     let mut program = many1::<Vec<_>, _>(function);
 
-    let ast = program.easy_parse(tokens)?;
-    Ok(ast.0)
+    match program.easy_parse(tokens) {
+        Ok(ast) => Ok(ast.0),
+        Err(e) => Err(CompilerError::ParseError(format!("{:?}", e))),
+    }
 }
 
 fn factor<I>() -> impl Parser<Input = I, Output = Expression>
@@ -83,11 +34,6 @@ where
     I: Stream<Item = Token>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    let literal = any().map(|t| match t {
-        Token::Integer(i) => Expression::Literal(i),
-        _ => panic!("Invalid expression"),
-    });
-
     let unary_op = choice((
         token(Token::Minus),
         token(Token::BinaryNot),
@@ -101,7 +47,7 @@ where
         _ => panic!("Invalid unary operator"),
     });
 
-    choice((unary_op, literal))
+    choice((unary_op, literal()))
 }
 
 fn term<I>() -> impl Parser<Input = I, Output = Expression>
@@ -143,4 +89,34 @@ where
                     _ => panic!("Invalid binary operator"),
                 })
         })
+}
+
+fn literal<I>() -> impl Parser<Input = I, Output = Expression>
+where
+    I: Stream<Item = Token>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    satisfy(|t| match t {
+        Token::Integer(_) => true,
+        _ => false,
+    })
+    .map(|t| match t {
+        Token::Integer(i) => Expression::Literal(i),
+        _ => unreachable!(),
+    })
+}
+
+fn identifier<I>() -> impl Parser<Input = I, Output = String>
+where
+    I: Stream<Item = Token>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    satisfy(|t| match t {
+        Token::Identifier(_) => true,
+        _ => false,
+    })
+    .map(|t| match t {
+        Token::Identifier(i) => i,
+        _ => unreachable!(),
+    })
 }
