@@ -78,8 +78,7 @@ where
         })
 }
 
-parser! { fn expression[I]()(I) -> Expression where [I: Stream<Item = Token>] { expression_() }}
-fn expression_<I>() -> impl Parser<Input = I, Output = Expression>
+fn additive_exp<I>() -> impl Parser<Input = I, Output = Expression>
 where
     I: Stream<Item = Token>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -94,7 +93,94 @@ where
                 .fold(first, |prev, (op, next)| match op {
                     Token::Add => Expression::Add(Box::new(prev), Box::new(next)),
                     Token::Minus => Expression::Subtract(Box::new(prev), Box::new(next)),
-                    _ => panic!("Invalid binary operator"),
+                    _ => unreachable!(),
+                })
+        })
+}
+
+fn relational_exp<I>() -> impl Parser<Input = I, Output = Expression>
+where
+    I: Stream<Item = Token>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    additive_exp()
+        .and(many::<Vec<_>, _>(
+            choice((
+                token(Token::LessThan),
+                token(Token::LessThanOrEqual),
+                token(Token::GreaterThan),
+                token(Token::GreaterThanOrEqual),
+            ))
+            .and(additive_exp()),
+        ))
+        .map(|(first, remainder)| {
+            remainder
+                .into_iter()
+                .fold(first, |prev, (op, next)| match op {
+                    Token::LessThan => Expression::LessThan(Box::new(prev), Box::new(next)),
+                    Token::LessThanOrEqual => {
+                        Expression::LessThanOrEqual(Box::new(prev), Box::new(next))
+                    }
+                    Token::GreaterThan => Expression::GreaterThan(Box::new(prev), Box::new(next)),
+                    Token::GreaterThanOrEqual => {
+                        Expression::GreaterThanOrEqual(Box::new(prev), Box::new(next))
+                    }
+                    _ => unreachable!(),
+                })
+        })
+}
+
+fn equality_exp<I>() -> impl Parser<Input = I, Output = Expression>
+where
+    I: Stream<Item = Token>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    relational_exp()
+        .and(many::<Vec<_>, _>(
+            choice((token(Token::Equal), token(Token::NotEqual))).and(relational_exp()),
+        ))
+        .map(|(first, remainder)| {
+            remainder
+                .into_iter()
+                .fold(first, |prev, (op, next)| match op {
+                    Token::Equal => Expression::Equal(Box::new(prev), Box::new(next)),
+                    Token::NotEqual => Expression::NotEqual(Box::new(prev), Box::new(next)),
+                    _ => unreachable!(),
+                })
+        })
+}
+
+fn logical_and_exp<I>() -> impl Parser<Input = I, Output = Expression>
+where
+    I: Stream<Item = Token>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    equality_exp()
+        .and(many::<Vec<_>, _>(token(Token::And).and(equality_exp())))
+        .map(|(first, remainder)| {
+            remainder
+                .into_iter()
+                .fold(first, |prev, (op, next)| match op {
+                    Token::And => Expression::And(Box::new(prev), Box::new(next)),
+                    _ => unreachable!(),
+                })
+        })
+}
+
+parser! { fn expression[I]()(I) -> Expression where [I: Stream<Item = Token>] { expression_() }}
+fn expression_<I>() -> impl Parser<Input = I, Output = Expression>
+where
+    I: Stream<Item = Token>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    logical_and_exp()
+        .and(many::<Vec<_>, _>(token(Token::Or).and(logical_and_exp())))
+        .map(|(first, remainder)| {
+            remainder
+                .into_iter()
+                .fold(first, |prev, (op, next)| match op {
+                    Token::Or => Expression::Or(Box::new(prev), Box::new(next)),
+                    _ => unreachable!(),
                 })
         })
 }

@@ -1,6 +1,6 @@
 use crate::error::CompilerError;
 use combine::char::{alpha_num, digit, spaces, string};
-use combine::{choice, eof, many1, sep_end_by1, token, Parser};
+use combine::{attempt, choice, eof, many1, sep_end_by1, token, Parser};
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
@@ -19,11 +19,30 @@ pub enum Token {
     Add,
     Multiply,
     Divide,
+
+    And,
+    Or,
+    Equal,
+    NotEqual,
+    LessThan,
+    LessThanOrEqual,
+    GreaterThan,
+    GreaterThanOrEqual,
 }
 
 pub fn lex(text: &str) -> Result<Vec<Token>, CompilerError> {
     let mut lexer = sep_end_by1::<Vec<_>, _, _>(
         choice((
+            attempt(string("&&")).map(|_| Token::And),
+            attempt(string("||")).map(|_| Token::Or),
+            attempt(string("==")).map(|_| Token::Equal),
+            attempt(string("!=")).map(|_| Token::NotEqual),
+            attempt(string("<=")).map(|_| Token::LessThanOrEqual),
+            attempt(string(">=")).map(|_| Token::GreaterThanOrEqual),
+            attempt(string("int")).map(|_| Token::Int),
+            attempt(string("return")).map(|_| Token::Return),
+            token('<').map(|_| Token::LessThan),
+            token('>').map(|_| Token::GreaterThan),
             token('{').map(|_| Token::OpenBrace),
             token('}').map(|_| Token::CloseBrace),
             token('(').map(|_| Token::OpenParen),
@@ -35,8 +54,6 @@ pub fn lex(text: &str) -> Result<Vec<Token>, CompilerError> {
             token('+').map(|_| Token::Add),
             token('*').map(|_| Token::Multiply),
             token('/').map(|_| Token::Divide),
-            string("int").map(|_| Token::Int),
-            string("return").map(|_| Token::Return),
             many1::<String, _>(digit()).map(|i| Token::Integer(i.parse().unwrap())),
             many1::<String, _>(alpha_num()).map(|id| Token::Identifier(id)),
         )),
