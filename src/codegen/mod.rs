@@ -40,13 +40,28 @@ impl Function {
 }
 
 #[derive(Debug)]
+pub enum Type {
+    Int,
+}
+
+pub type Identifier = String;
+
+#[derive(Debug)]
 pub enum Statement {
     Return(Expression),
+    Declaration(Type, Identifier, Option<Expression>),
+    Expression(Expression),
 }
 
 impl Statement {
     pub fn generate(&self, stream: &mut impl Write, labels: &mut LabelGenerator) -> io::Result<()> {
         match self {
+            Statement::Declaration(t, id, e) => {
+                unimplemented!();
+            }
+            Statement::Expression(e) => {
+                e.generate(stream, labels)?;
+            }
             Statement::Return(e) => {
                 e.generate(stream, labels)?;
                 writeln!(stream, "ret")?;
@@ -74,11 +89,15 @@ pub enum Expression {
     LessThanOrEqual(Box<Expression>, Box<Expression>),
     GreaterThan(Box<Expression>, Box<Expression>),
     GreaterThanOrEqual(Box<Expression>, Box<Expression>),
+    Assignment(Identifier, Box<Expression>),
 }
 
 impl Expression {
     pub fn generate(&self, stream: &mut impl Write, labels: &mut LabelGenerator) -> io::Result<()> {
         match self {
+            Expression::Assignment(id, e) => {
+                unimplemented!();
+            }
             Expression::Literal(i) => {
                 writeln!(stream, "mov rax, {}", i)?;
             }

@@ -19,7 +19,6 @@ pub enum Token {
     Add,
     Multiply,
     Divide,
-
     And,
     Or,
     Equal,
@@ -28,6 +27,7 @@ pub enum Token {
     LessThanOrEqual,
     GreaterThan,
     GreaterThanOrEqual,
+    Assign,
 }
 
 pub fn lex(text: &str) -> Result<Vec<Token>, CompilerError> {
@@ -54,6 +54,7 @@ pub fn lex(text: &str) -> Result<Vec<Token>, CompilerError> {
             token('+').map(|_| Token::Add),
             token('*').map(|_| Token::Multiply),
             token('/').map(|_| Token::Divide),
+            token('=').map(|_| Token::Assign),
             many1::<String, _>(digit()).map(|i| Token::Integer(i.parse().unwrap())),
             many1::<String, _>(alpha_num()).map(|id| Token::Identifier(id)),
         )),

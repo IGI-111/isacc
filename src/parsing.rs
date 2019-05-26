@@ -2,31 +2,56 @@ use crate::codegen::*;
 use crate::error::CompilerError;
 use crate::lexing::*;
 use combine::{
-    between, choice, many, many1, satisfy, sep_end_by1, token, ParseError, Parser, Stream,
+    between, choice, many, many1, optional, satisfy, sep_end_by1, token, ParseError, Parser, Stream,
 };
 
 pub fn parse(tokens: &[Token]) -> Result<Vec<Function>, CompilerError> {
-    let statement = token(Token::Return)
-        .with(expression())
-        .map(|e| Statement::Return(e));
+    let mut program = many1::<Vec<_>, _>(function());
 
-    let function = token(Token::Int)
+    match program.easy_parse(tokens) {
+        Ok(ast) => Ok(ast.0),
+        Err(e) => Err(CompilerError::ParseError(format!("{:?}", e))),
+    }
+}
+
+fn function<I>() -> impl Parser<Input = I, Output = Function>
+where
+    I: Stream<Item = Token>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    token(Token::Int)
         .with(identifier())
         .skip(token(Token::OpenParen))
         .skip(token(Token::CloseParen))
         .and(between(
             token(Token::OpenBrace),
             token(Token::CloseBrace),
-            sep_end_by1::<Vec<_>, _, _>(statement, token(Token::Semicolon)),
+            sep_end_by1::<Vec<_>, _, _>(statement(), token(Token::Semicolon)),
         ))
-        .map(|(name, statements)| Function::new(name, statements));
+        .map(|(name, statements)| Function::new(name, statements))
+}
 
-    let mut program = many1::<Vec<_>, _>(function);
+fn statement<I>() -> impl Parser<Input = I, Output = Statement>
+where
+    I: Stream<Item = Token>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    let return_statement = token(Token::Return)
+        .with(expression())
+        .map(|e| Statement::Return(e));
 
-    match program.easy_parse(tokens) {
-        Ok(ast) => Ok(ast.0),
-        Err(e) => Err(CompilerError::ParseError(format!("{:?}", e))),
-    }
+    let expression_statement = expression().map(|e| Statement::Expression(e));
+
+    let declaration_statement = typename()
+        .and(identifier())
+        .and(optional(expression()))
+        .map(|((t, id), expr)| Statement::Declaration(t, id, expr));
+
+    choice((
+        return_statement,
+        expression_statement,
+        declaration_statement,
+    ))
 }
 
 fn factor<I>() -> impl Parser<Input = I, Output = Expression>
@@ -200,7 +225,7 @@ where
     })
 }
 
-fn identifier<I>() -> impl Parser<Input = I, Output = String>
+fn identifier<I>() -> impl Parser<Input = I, Output = Identifier>
 where
     I: Stream<Item = Token>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -211,6 +236,21 @@ where
     })
     .map(|t| match t {
         Token::Identifier(i) => i,
+        _ => unreachable!(),
+    })
+}
+
+fn typename<I>() -> impl Parser<Input = I, Output = Type>
+where
+    I: Stream<Item = Token>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    satisfy(|t| match t {
+        Token::Int => true,
+        _ => false,
+    })
+    .map(|t| match t {
+        Token::Int => Type::Int,
         _ => unreachable!(),
     })
 }
