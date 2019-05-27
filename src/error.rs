@@ -16,6 +16,4 @@ impl fmt::Display for CompilerError {
     }
 }
 
-
-
 impl Error for CompilerError {}

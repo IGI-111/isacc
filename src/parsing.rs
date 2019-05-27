@@ -44,7 +44,7 @@ where
 
     let declaration_statement = typename()
         .and(identifier())
-        .and(optional(expression()))
+        .and(optional(token(Token::Assign).with(expression())))
         .map(|((t, id), expr)| Statement::Declaration(t, id, expr));
 
     choice((
@@ -192,8 +192,7 @@ where
         })
 }
 
-parser! { fn expression[I]()(I) -> Expression where [I: Stream<Item = Token>] { expression_() }}
-fn expression_<I>() -> impl Parser<Input = I, Output = Expression>
+fn logical_or_exp<I>() -> impl Parser<Input = I, Output = Expression>
 where
     I: Stream<Item = Token>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -208,6 +207,21 @@ where
                     _ => unreachable!(),
                 })
         })
+}
+
+parser! { fn expression[I]()(I) -> Expression where [I: Stream<Item = Token>] { expression_() }}
+fn expression_<I>() -> impl Parser<Input = I, Output = Expression>
+where
+    I: Stream<Item = Token>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    choice((
+        identifier()
+            .skip(token(Token::Assign))
+            .and(expression())
+            .map(|(id, expr)| Expression::Assignment(id, Box::new(expr))),
+        logical_or_exp(),
+    ))
 }
 
 fn literal<I>() -> impl Parser<Input = I, Output = Expression>
