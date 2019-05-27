@@ -1,5 +1,6 @@
 #[macro_use]
 extern crate combine;
+extern crate indexmap;
 
 mod codegen;
 mod error;
