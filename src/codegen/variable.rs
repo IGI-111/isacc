@@ -1,24 +1,24 @@
-use super::Identifier;
-use indexmap::IndexSet;
+use super::{Identifier, Type};
+use indexmap::IndexMap;
 
 pub struct VariableMap {
-    ids: IndexSet<Identifier>,
+    ids: IndexMap<Identifier, Type>,
 }
 
 impl VariableMap {
     pub fn new() -> Self {
-        Self { ids: Vec::new() }
+        Self { ids: IndexMap::new() }
     }
 
-    pub fn declare(&mut self, id: &Identifier) {
-        if self.ids.contains(id) {
+    pub fn declare(&mut self, id: Identifier, t: Type) {
+        if self.ids.contains_key(&id) {
             panic!("duplicate variable definition");
         }
-        self.ids.insert(id);
+        self.ids.insert(id, t);
     }
 
-    pub fn offset_of(&self, id: &Identifier) {
-        let (i, _) = self.ids.get_full(id).unwrap();
-        -8 * (1 + i) // 64 bit offsetting, starting at [rbp-8]
+    pub fn offset_of(&self, id: &Identifier) -> isize {
+        let (i, _, _) = self.ids.get_full(id).unwrap();
+        -8 * (1 + i as isize) // 64 bit offsetting, starting at [rbp-8]
     }
 }
