@@ -2,6 +2,7 @@ use crate::codegen::*;
 use crate::error::CompilerError;
 use crate::lexing::*;
 use combine::{
+    attempt,
     between, choice, many, many1, optional, satisfy, sep_end_by1, token, ParseError, Parser, Stream,
 };
 
@@ -80,6 +81,7 @@ where
             token(Token::CloseParen),
             expression(),
         ),
+        identifier().map(|id| Expression::Identifier(id)),
     ))
 }
 
@@ -216,10 +218,12 @@ where
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     choice((
-        identifier()
-            .skip(token(Token::Assign))
-            .and(expression())
-            .map(|(id, expr)| Expression::Assignment(id, Box::new(expr))),
+        attempt(
+            identifier()
+                .skip(token(Token::Assign))
+                .and(expression())
+                .map(|(id, expr)| Expression::Assignment(id, Box::new(expr))),
+        ),
         logical_or_exp(),
     ))
 }

@@ -34,15 +34,37 @@ impl Function {
         labels: &mut LabelGenerator,
         vars: &mut VariableMap,
     ) -> io::Result<()> {
+        if self.name == "main" {
+            writeln!(
+                stream,
+                ".globl _main\n\
+                 _main:"
+            )?;
+        } else {
+            writeln!(
+                stream,
+                ".globl {}\n\
+                 {}:",
+                self.name, self.name
+            )?;
+        }
         writeln!(
             stream,
-            ".globl {}\n\
-             {}:",
-            self.name, self.name
+            "push rbp\n\
+             mov rbp, rsp"
         )?;
+
         for s in self.statements.iter() {
             s.generate(stream, labels, vars)?;
         }
+
+        writeln!(
+            stream,
+            "mov rsp, rbp\n\
+             pop rbp\n\
+             mov rax, 0\n\
+             ret"
+        )?;
         Ok(())
     }
 }
@@ -73,7 +95,7 @@ impl Statement {
                 vars.declare(id.clone(), (*t).clone());
                 if let Some(e) = expr {
                     e.generate(stream, labels, vars)?;
-                    writeln!(stream, "mov [rbp{}] rax", vars.offset_of(&id))?;
+                    writeln!(stream, "mov [rbp{}], rax", vars.offset_of(&id))?;
                 }
             }
             Statement::Expression(e) => {
@@ -81,7 +103,12 @@ impl Statement {
             }
             Statement::Return(e) => {
                 e.generate(stream, labels, vars)?;
-                writeln!(stream, "ret")?;
+                writeln!(
+                    stream,
+                    "mov rsp, rbp\n\
+                     pop rbp\n\
+                     ret"
+                )?;
             }
         }
         Ok(())
@@ -90,6 +117,7 @@ impl Statement {
 
 #[derive(Debug)]
 pub enum Expression {
+    Identifier(Identifier),
     Literal(usize),
     Minus(Box<Expression>),
     BinaryNot(Box<Expression>),
@@ -117,8 +145,12 @@ impl Expression {
         vars: &mut VariableMap,
     ) -> io::Result<()> {
         match self {
+            Expression::Identifier(id) => {
+                    writeln!(stream, "mov [rbp{}], rax", vars.offset_of(&id))?;
+            }
             Expression::Assignment(id, e) => {
-                unimplemented!();
+                e.generate(stream, labels, vars)?;
+                    writeln!(stream, "mov [rbp{}], rax", vars.offset_of(&id))?;
             }
             Expression::Literal(i) => {
                 writeln!(stream, "mov rax, {}", i)?;
