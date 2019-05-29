@@ -122,6 +122,10 @@ pub enum Expression {
     Minus(Box<Expression>),
     BinaryNot(Box<Expression>),
     LogicalNot(Box<Expression>),
+    PreIncrement(Identifier),
+    PreDecrement(Identifier),
+    PostIncrement(Identifier),
+    PostDecrement(Identifier),
     Subtract(Box<Expression>, Box<Expression>),
     Add(Box<Expression>, Box<Expression>),
     Divide(Box<Expression>, Box<Expression>),
@@ -145,12 +149,48 @@ impl Expression {
         vars: &mut VariableMap,
     ) -> io::Result<()> {
         match self {
+            Expression::PreIncrement(id) => {
+                let offset = vars.offset_of(&id);
+                writeln!(
+                    stream,
+                    "add QWORD PTR [rbp{}], 1\n\
+                     mov rax, [rbp{}]",
+                    offset, offset
+                )?;
+            }
+            Expression::PreDecrement(id) => {
+                let offset = vars.offset_of(&id);
+                writeln!(
+                    stream,
+                    "sub QWORD PTR [rbp{}], 1\n\
+                     mov rax, [rbp{}]",
+                    offset, offset
+                )?;
+            }
+            Expression::PostIncrement(id) => {
+                let offset = vars.offset_of(&id);
+                writeln!(
+                    stream,
+                    "mov rax, [rbp{}]\n\
+                     add QWORD PTR [rbp{}], 1",
+                    offset, offset
+                )?;
+            }
+            Expression::PostDecrement(id) => {
+                let offset = vars.offset_of(&id);
+                writeln!(
+                    stream,
+                    "mov rax, [rbp{}]\n\
+                     sub QWORD PTR [rbp{}], 1",
+                    offset, offset
+                )?;
+            }
             Expression::Identifier(id) => {
-                    writeln!(stream, "mov [rbp{}], rax", vars.offset_of(&id))?;
+                writeln!(stream, "mov rax, [rbp{}]", vars.offset_of(&id))?;
             }
             Expression::Assignment(id, e) => {
                 e.generate(stream, labels, vars)?;
-                    writeln!(stream, "mov [rbp{}], rax", vars.offset_of(&id))?;
+                writeln!(stream, "mov [rbp{}], rax", vars.offset_of(&id))?;
             }
             Expression::Literal(i) => {
                 writeln!(stream, "mov rax, {}", i)?;

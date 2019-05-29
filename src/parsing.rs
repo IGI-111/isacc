@@ -70,10 +70,33 @@ where
         Token::Minus => Expression::Minus(Box::new(e)),
         Token::BinaryNot => Expression::BinaryNot(Box::new(e)),
         Token::LogicalNot => Expression::LogicalNot(Box::new(e)),
-        _ => panic!("Invalid unary operator"),
+        _ => unreachable!(),
+    });
+
+    let unary_lvalue_pre = choice((
+        token(Token::Increment),
+        token(Token::Decrement),
+    ))
+    .and(identifier())
+    .map(|(op, id)| match op {
+        Token::Increment => Expression::PreIncrement(id),
+        Token::Decrement => Expression::PreDecrement(id),
+        _ => unreachable!(),
+    });
+
+    let unary_lvalue_post = identifier().and(choice((
+        token(Token::Increment),
+        token(Token::Decrement),
+    )))
+    .map(|(id, op)| match op {
+        Token::Increment => Expression::PostIncrement(id),
+        Token::Decrement => Expression::PostDecrement(id),
+        _ => unreachable!(),
     });
 
     choice((
+        attempt(unary_lvalue_pre),
+        attempt(unary_lvalue_post),
         unary_op,
         literal(),
         between(
