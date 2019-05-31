@@ -2,8 +2,8 @@ use crate::codegen::*;
 use crate::error::CompilerError;
 use crate::lexing::*;
 use combine::{
-    attempt,
-    between, choice, many, many1, optional, satisfy, sep_end_by1, token, ParseError, Parser, Stream,
+    attempt, between, choice, many, many1, optional, satisfy, sep_end_by1, token, ParseError,
+    Parser, Stream,
 };
 
 pub fn parse(tokens: &[Token]) -> Result<Vec<Function>, CompilerError> {
@@ -73,26 +73,21 @@ where
         _ => unreachable!(),
     });
 
-    let unary_lvalue_pre = choice((
-        token(Token::Increment),
-        token(Token::Decrement),
-    ))
-    .and(identifier())
-    .map(|(op, id)| match op {
-        Token::Increment => Expression::PreIncrement(id),
-        Token::Decrement => Expression::PreDecrement(id),
-        _ => unreachable!(),
-    });
+    let unary_lvalue_pre = choice((token(Token::Increment), token(Token::Decrement)))
+        .and(identifier())
+        .map(|(op, id)| match op {
+            Token::Increment => Expression::PreIncrement(id),
+            Token::Decrement => Expression::PreDecrement(id),
+            _ => unreachable!(),
+        });
 
-    let unary_lvalue_post = identifier().and(choice((
-        token(Token::Increment),
-        token(Token::Decrement),
-    )))
-    .map(|(id, op)| match op {
-        Token::Increment => Expression::PostIncrement(id),
-        Token::Decrement => Expression::PostDecrement(id),
-        _ => unreachable!(),
-    });
+    let unary_lvalue_post = identifier()
+        .and(choice((token(Token::Increment), token(Token::Decrement))))
+        .map(|(id, op)| match op {
+            Token::Increment => Expression::PostIncrement(id),
+            Token::Decrement => Expression::PostDecrement(id),
+            _ => unreachable!(),
+        });
 
     choice((
         attempt(unary_lvalue_pre),
@@ -243,9 +238,46 @@ where
     choice((
         attempt(
             identifier()
-                .skip(token(Token::Assign))
+                .and(choice((
+                    token(Token::Assign),
+                    token(Token::AssignAdd),
+                    token(Token::AssignMinus),
+                    token(Token::AssignMultiply),
+                    token(Token::AssignDivide),
+                )))
                 .and(expression())
-                .map(|(id, expr)| Expression::Assignment(id, Box::new(expr))),
+                .map(|((id, op), expr)| match op {
+                    Token::Assign => Expression::Assignment(id, Box::new(expr)),
+                    Token::AssignAdd => Expression::Assignment(
+                        id.clone(),
+                        Box::new(Expression::Add(
+                            Box::new(Expression::Identifier(id)),
+                            Box::new(expr),
+                        )),
+                    ),
+                    Token::AssignMinus => Expression::Assignment(
+                        id.clone(),
+                        Box::new(Expression::Subtract(
+                            Box::new(Expression::Identifier(id)),
+                            Box::new(expr),
+                        )),
+                    ),
+                    Token::AssignMultiply => Expression::Assignment(
+                        id.clone(),
+                        Box::new(Expression::Multiply(
+                            Box::new(Expression::Identifier(id)),
+                            Box::new(expr),
+                        )),
+                    ),
+                    Token::AssignDivide => Expression::Assignment(
+                        id.clone(),
+                        Box::new(Expression::Divide(
+                            Box::new(Expression::Identifier(id)),
+                            Box::new(expr),
+                        )),
+                    ),
+                    _ => unreachable!(),
+                }),
         ),
         logical_or_exp(),
     ))

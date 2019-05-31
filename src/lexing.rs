@@ -30,23 +30,31 @@ pub enum Token {
     Assign,
     Increment,
     Decrement,
+    AssignAdd,
+    AssignMinus,
+    AssignMultiply,
+    AssignDivide,
 }
 
 pub fn lex(text: &str) -> Result<Vec<Token>, CompilerError> {
     let mut lexer = sep_end_by1::<Vec<_>, _, _>(
         choice((
-            attempt(choice((
-                string("&&").map(|_| Token::And),
-                string("||").map(|_| Token::Or),
-                string("==").map(|_| Token::Equal),
-                string("!=").map(|_| Token::NotEqual),
-                string("<=").map(|_| Token::LessThanOrEqual),
-                string(">=").map(|_| Token::GreaterThanOrEqual),
-                string("int").map(|_| Token::Int),
-                string("return").map(|_| Token::Return),
-                string("++").map(|_| Token::Increment),
-                string("--").map(|_| Token::Decrement),
-            ))),
+            choice((
+                attempt(string("&&").map(|_| Token::And)),
+                attempt(string("||").map(|_| Token::Or)),
+                attempt(string("==").map(|_| Token::Equal)),
+                attempt(string("!=").map(|_| Token::NotEqual)),
+                attempt(string("<=").map(|_| Token::LessThanOrEqual)),
+                attempt(string(">=").map(|_| Token::GreaterThanOrEqual)),
+                attempt(string("int").map(|_| Token::Int)),
+                attempt(string("return").map(|_| Token::Return)),
+                attempt(string("++").map(|_| Token::Increment)),
+                attempt(string("--").map(|_| Token::Decrement)),
+                attempt(string("+=").map(|_| Token::AssignAdd)),
+                attempt(string("-=").map(|_| Token::AssignMinus)),
+                attempt(string("*=").map(|_| Token::AssignMultiply)),
+                attempt(string("/=").map(|_| Token::AssignDivide)),
+            )),
             choice((
                 token('<').map(|_| Token::LessThan),
                 token('>').map(|_| Token::GreaterThan),
