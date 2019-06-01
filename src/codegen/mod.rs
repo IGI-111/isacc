@@ -37,7 +37,8 @@ impl Function {
         if self.name == "main" {
             writeln!(
                 stream,
-                ".globl _main\n\
+                ".globl main\n\
+                 main:\n\
                  _main:"
             )?;
         } else {
