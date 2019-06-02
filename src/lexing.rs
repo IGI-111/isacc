@@ -34,6 +34,10 @@ pub enum Token {
     AssignMinus,
     AssignMultiply,
     AssignDivide,
+    If,
+    Else,
+    Colon,
+    QuestionMark,
 }
 
 pub fn lex(text: &str) -> Result<Vec<Token>, CompilerError> {
@@ -48,6 +52,8 @@ pub fn lex(text: &str) -> Result<Vec<Token>, CompilerError> {
                 attempt(string(">=").map(|_| Token::GreaterThanOrEqual)),
                 attempt(string("int").map(|_| Token::Int)),
                 attempt(string("return").map(|_| Token::Return)),
+                attempt(string("if").map(|_| Token::If)),
+                attempt(string("else").map(|_| Token::Else)),
                 attempt(string("++").map(|_| Token::Increment)),
                 attempt(string("--").map(|_| Token::Decrement)),
                 attempt(string("+=").map(|_| Token::AssignAdd)),
@@ -70,6 +76,8 @@ pub fn lex(text: &str) -> Result<Vec<Token>, CompilerError> {
                 token('*').map(|_| Token::Multiply),
                 token('/').map(|_| Token::Divide),
                 token('=').map(|_| Token::Assign),
+                token(':').map(|_| Token::Colon),
+                token('?').map(|_| Token::QuestionMark),
             )),
             many1::<String, _>(digit()).map(|i| Token::Integer(i.parse().unwrap())),
             many1::<String, _>(alpha_num()).map(|id| Token::Identifier(id)),

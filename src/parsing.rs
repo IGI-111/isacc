@@ -27,32 +27,57 @@ where
         .and(between(
             token(Token::OpenBrace),
             token(Token::CloseBrace),
-            sep_end_by1::<Vec<_>, _, _>(statement(), token(Token::Semicolon)),
+            many::<Vec<_>, _>(block_item()),
         ))
         .map(|(name, statements)| Function::new(name, statements))
 }
 
-fn statement<I>() -> impl Parser<Input = I, Output = Statement>
+fn block_item<I>() -> impl Parser<Input = I, Output = Statement>
+where
+    I: Stream<Item = Token>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    choice((declaration(), statement()))
+}
+
+fn declaration<I>() -> impl Parser<Input = I, Output = Statement>
+where
+    I: Stream<Item = Token>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    typename()
+        .and(identifier())
+        .and(optional(token(Token::Assign).with(expression())))
+        .skip(token(Token::Semicolon))
+        .map(|((t, id), expr)| Statement::Declaration(t, id, expr))
+}
+
+parser! { fn statement[I]()(I) -> Statement where [I: Stream<Item = Token>] { statement_() }}
+fn statement_<I>() -> impl Parser<Input = I, Output = Statement>
 where
     I: Stream<Item = Token>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
     let return_statement = token(Token::Return)
         .with(expression())
+        .skip(token(Token::Semicolon))
         .map(|e| Statement::Return(e));
 
-    let expression_statement = expression().map(|e| Statement::Expression(e));
+    let expression_statement = expression()
+        .map(|e| Statement::Expression(e))
+        .skip(token(Token::Semicolon));
 
-    let declaration_statement = typename()
-        .and(identifier())
-        .and(optional(token(Token::Assign).with(expression())))
-        .map(|((t, id), expr)| Statement::Declaration(t, id, expr));
+    let if_statement = token(Token::If)
+        .with(between(
+            token(Token::OpenParen),
+            token(Token::CloseParen),
+            expression(),
+        ))
+        .and(statement())
+        .and(optional(token(Token::Else).with(statement())))
+        .map(|((cond, stm), alt)| Statement::If(cond, Box::new(stm), alt.map(Box::new)));
 
-    choice((
-        return_statement,
-        expression_statement,
-        declaration_statement,
-    ))
+    choice((return_statement, if_statement, expression_statement))
 }
 
 fn factor<I>() -> impl Parser<Input = I, Output = Expression>
@@ -118,7 +143,7 @@ where
                 .fold(first, |prev, (op, next)| match op {
                     Token::Multiply => Expression::Multiply(Box::new(prev), Box::new(next)),
                     Token::Divide => Expression::Divide(Box::new(prev), Box::new(next)),
-                    _ => panic!("Invalid binary operator"),
+                    _ => unreachable!(),
                 })
         })
 }
@@ -229,6 +254,27 @@ where
         })
 }
 
+parser! { fn conditional_exp[I]()(I) -> Expression where [I: Stream<Item = Token>] { conditional_exp_() }}
+fn conditional_exp_<I>() -> impl Parser<Input = I, Output = Expression>
+where
+    I: Stream<Item = Token>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    logical_or_exp()
+        .and(optional(
+            token(Token::QuestionMark)
+                .with(expression())
+                .skip(token(Token::Colon))
+                .and(conditional_exp()),
+        ))
+        .map(|(cond, remainder)| match remainder {
+            None => cond,
+            Some((exp, alt)) => {
+                Expression::Conditional(Box::new(cond), Box::new(exp), Box::new(alt))
+            }
+        })
+}
+
 parser! { fn expression[I]()(I) -> Expression where [I: Stream<Item = Token>] { expression_() }}
 fn expression_<I>() -> impl Parser<Input = I, Output = Expression>
 where
@@ -279,7 +325,7 @@ where
                     _ => unreachable!(),
                 }),
         ),
-        logical_or_exp(),
+        conditional_exp(),
     ))
 }
 
