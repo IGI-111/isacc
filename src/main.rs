@@ -21,9 +21,9 @@ fn main() -> Result<(), Box<dyn Error>> {
     for file in args {
         let text = read_to_string(&file)?;
         let tokens: Vec<Token> = lex(&text)?;
-        println!("{:?}", tokens);
+        println!("{:#?}", tokens);
         let ast: Vec<Function> = parse(&tokens)?;
-        println!("{:?}", ast);
+        println!("{:#?}", ast);
         let output_path = format!(
             "{}.s",
             Path::new(&file)

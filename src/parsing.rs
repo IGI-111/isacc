@@ -2,7 +2,7 @@ use crate::codegen::*;
 use crate::error::CompilerError;
 use crate::lexing::*;
 use combine::{
-    attempt, between, choice, many, many1, optional, satisfy, sep_end_by1, token, ParseError,
+    attempt, between, choice, many, many1, optional, satisfy, token, ParseError,
     Parser, Stream,
 };
 
@@ -77,7 +77,18 @@ where
         .and(optional(token(Token::Else).with(statement())))
         .map(|((cond, stm), alt)| Statement::If(cond, Box::new(stm), alt.map(Box::new)));
 
-    choice((return_statement, if_statement, expression_statement))
+    let compound_statement = between(
+        token(Token::OpenBrace),
+        token(Token::CloseBrace),
+        many::<Vec<_>, _>(block_item()),
+    ).map(|stms| Statement::Compound(stms));
+
+    choice((
+        compound_statement,
+        return_statement,
+        if_statement,
+        expression_statement,
+    ))
 }
 
 fn factor<I>() -> impl Parser<Input = I, Output = Expression>

@@ -11,7 +11,7 @@ pub fn codegen(program: &[Function], stream: &mut impl Write) -> io::Result<()> 
     writeln!(stream, ".intel_syntax noprefix")?;
 
     let mut labels = LabelGenerator::new();
-    let mut vars = VariableMap::new();
+    let mut vars = VariableMap::empty();
     for function in program {
         function.generate(stream, &mut labels, &mut vars)?;
     }
@@ -40,6 +40,7 @@ impl Function {
             writeln!(
                 stream,
                 ".globl main\n\
+                 .globl _main\n\
                  main:\n\
                  _main:"
             )?;
@@ -85,6 +86,7 @@ pub enum Statement {
     Declaration(Type, Identifier, Option<Expression>),
     Expression(Expression),
     If(Expression, Box<Statement>, Option<Box<Statement>>),
+    Compound(Vec<Statement>),
 }
 
 impl Statement {
@@ -95,6 +97,12 @@ impl Statement {
         vars: &mut VariableMap,
     ) -> io::Result<()> {
         match self {
+            Statement::Compound(stms) => {
+                let mut inner_vars = VariableMap::extend(&vars);
+                for stm in stms {
+                    stm.generate(stream, labels, &mut inner_vars)?;
+                }
+            }
             Statement::If(cond, stm, alt) => match alt {
                 Some(alt) => {
                     let alt_label = labels.unique_label();
