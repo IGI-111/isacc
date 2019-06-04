@@ -1,6 +1,4 @@
-use super::label::LabelGenerator;
-use super::variable::VariableMap;
-use super::Identifier;
+use super::{Identifier, Generator, Context};
 use std::io::{self, Write};
 
 #[derive(Debug)]
@@ -30,26 +28,25 @@ pub enum Expression {
     Conditional(Box<Expression>, Box<Expression>, Box<Expression>),
 }
 
-impl Expression {
-    pub fn generate(
+impl Generator for Expression {
+    fn generate(
         &self,
         stream: &mut impl Write,
-        labels: &mut LabelGenerator,
-        vars: &mut VariableMap,
+        ctx: &mut Context,
     ) -> io::Result<()> {
         match self {
             Expression::Conditional(cond, exp, alt) => {
-                let alt_label = labels.unique_label();
-                let post_conditional = labels.unique_label();
+                let alt_label = ctx.unique_label();
+                let post_conditional = ctx.unique_label();
 
-                cond.generate(stream, labels, vars)?;
+                cond.generate(stream, ctx)?;
                 writeln!(
                     stream,
                     "cmp rax, 0\n\
                      je {}",
                     alt_label
                 )?;
-                exp.generate(stream, labels, vars)?;
+                exp.generate(stream, ctx)?;
                 writeln!(
                     stream,
                     "jmp {}\n\
@@ -57,11 +54,11 @@ impl Expression {
                     post_conditional,
                     alt_label
                 )?;
-                alt.generate(stream, labels, vars)?;
+                alt.generate(stream, ctx)?;
                 writeln!(stream, "{}:", post_conditional)?;
             }
             Expression::PreIncrement(id) => {
-                let offset = vars.offset_of(&id);
+                let offset = ctx.offset_of(&id);
                 writeln!(
                     stream,
                     "add QWORD PTR [rbp{}], 1\n\
@@ -70,7 +67,7 @@ impl Expression {
                 )?;
             }
             Expression::PreDecrement(id) => {
-                let offset = vars.offset_of(&id);
+                let offset = ctx.offset_of(&id);
                 writeln!(
                     stream,
                     "sub QWORD PTR [rbp{}], 1\n\
@@ -79,7 +76,7 @@ impl Expression {
                 )?;
             }
             Expression::PostIncrement(id) => {
-                let offset = vars.offset_of(&id);
+                let offset = ctx.offset_of(&id);
                 writeln!(
                     stream,
                     "mov rax, [rbp{}]\n\
@@ -88,7 +85,7 @@ impl Expression {
                 )?;
             }
             Expression::PostDecrement(id) => {
-                let offset = vars.offset_of(&id);
+                let offset = ctx.offset_of(&id);
                 writeln!(
                     stream,
                     "mov rax, [rbp{}]\n\
@@ -97,25 +94,25 @@ impl Expression {
                 )?;
             }
             Expression::Identifier(id) => {
-                writeln!(stream, "mov rax, [rbp{}]", vars.offset_of(&id))?;
+                writeln!(stream, "mov rax, [rbp{}]", ctx.offset_of(&id))?;
             }
             Expression::Assignment(id, e) => {
-                e.generate(stream, labels, vars)?;
-                writeln!(stream, "mov [rbp{}], rax", vars.offset_of(&id))?;
+                e.generate(stream, ctx)?;
+                writeln!(stream, "mov [rbp{}], rax", ctx.offset_of(&id))?;
             }
             Expression::Literal(i) => {
                 writeln!(stream, "mov rax, {}", i)?;
             }
             Expression::Minus(e) => {
-                e.generate(stream, labels, vars)?;
+                e.generate(stream, ctx)?;
                 writeln!(stream, "neg rax")?;
             }
             Expression::BinaryNot(e) => {
-                e.generate(stream, labels, vars)?;
+                e.generate(stream, ctx)?;
                 writeln!(stream, "not rax")?;
             }
             Expression::LogicalNot(e) => {
-                e.generate(stream, labels, vars)?;
+                e.generate(stream, ctx)?;
                 writeln!(
                     stream,
                     "cmp rax, 0\n\
@@ -124,9 +121,9 @@ impl Expression {
                 )?;
             }
             Expression::Subtract(e1, e2) => {
-                e1.generate(stream, labels, vars)?;
+                e1.generate(stream, ctx)?;
                 writeln!(stream, "push rax")?;
-                e2.generate(stream, labels, vars)?;
+                e2.generate(stream, ctx)?;
                 writeln!(
                     stream,
                     "pop rcx\n\
@@ -134,9 +131,9 @@ impl Expression {
                 )?;
             }
             Expression::Add(e1, e2) => {
-                e1.generate(stream, labels, vars)?;
+                e1.generate(stream, ctx)?;
                 writeln!(stream, "push rax")?;
-                e2.generate(stream, labels, vars)?;
+                e2.generate(stream, ctx)?;
                 writeln!(
                     stream,
                     "pop rcx\n\
@@ -144,9 +141,9 @@ impl Expression {
                 )?;
             }
             Expression::Multiply(e1, e2) => {
-                e1.generate(stream, labels, vars)?;
+                e1.generate(stream, ctx)?;
                 writeln!(stream, "push rax")?;
-                e2.generate(stream, labels, vars)?;
+                e2.generate(stream, ctx)?;
                 writeln!(
                     stream,
                     "pop rcx\n\
@@ -154,9 +151,9 @@ impl Expression {
                 )?;
             }
             Expression::Divide(e1, e2) => {
-                e1.generate(stream, labels, vars)?;
+                e1.generate(stream, ctx)?;
                 writeln!(stream, "push rax")?;
-                e2.generate(stream, labels, vars)?;
+                e2.generate(stream, ctx)?;
                 writeln!(
                     stream,
                     "mov rdx, 0\n\
@@ -166,9 +163,9 @@ impl Expression {
                 )?;
             }
             Expression::And(e1, e2) => {
-                let end = labels.unique_label();
-                let second_clause = labels.unique_label();
-                e1.generate(stream, labels, vars)?;
+                let end = ctx.unique_label();
+                let second_clause = ctx.unique_label();
+                e1.generate(stream, ctx)?;
                 writeln!(
                     stream,
                     "cmp rax, 0\n\
@@ -177,7 +174,7 @@ impl Expression {
                      {}:",
                     second_clause, end, second_clause
                 )?;
-                e2.generate(stream, labels, vars)?;
+                e2.generate(stream, ctx)?;
                 writeln!(
                     stream,
                     "cmp rax, 0\n\
@@ -188,9 +185,9 @@ impl Expression {
                 )?;
             }
             Expression::Or(e1, e2) => {
-                let end = labels.unique_label();
-                let second_clause = labels.unique_label();
-                e1.generate(stream, labels, vars)?;
+                let end = ctx.unique_label();
+                let second_clause = ctx.unique_label();
+                e1.generate(stream, ctx)?;
                 writeln!(
                     stream,
                     "cmp rax, 0\n\
@@ -200,7 +197,7 @@ impl Expression {
                      {}:",
                     second_clause, end, second_clause
                 )?;
-                e2.generate(stream, labels, vars)?;
+                e2.generate(stream, ctx)?;
                 writeln!(
                     stream,
                     "cmp rax, 0\n\
@@ -211,9 +208,9 @@ impl Expression {
                 )?;
             }
             Expression::Equal(e1, e2) => {
-                e1.generate(stream, labels, vars)?;
+                e1.generate(stream, ctx)?;
                 writeln!(stream, "push rax")?;
-                e2.generate(stream, labels, vars)?;
+                e2.generate(stream, ctx)?;
                 writeln!(
                     stream,
                     "pop rcx\n\
@@ -223,9 +220,9 @@ impl Expression {
                 )?;
             }
             Expression::NotEqual(e1, e2) => {
-                e1.generate(stream, labels, vars)?;
+                e1.generate(stream, ctx)?;
                 writeln!(stream, "push rax")?;
-                e2.generate(stream, labels, vars)?;
+                e2.generate(stream, ctx)?;
                 writeln!(
                     stream,
                     "pop rcx\n\
@@ -235,9 +232,9 @@ impl Expression {
                 )?;
             }
             Expression::LessThan(e1, e2) => {
-                e1.generate(stream, labels, vars)?;
+                e1.generate(stream, ctx)?;
                 writeln!(stream, "push rax")?;
-                e2.generate(stream, labels, vars)?;
+                e2.generate(stream, ctx)?;
                 writeln!(
                     stream,
                     "pop rcx\n\
@@ -247,9 +244,9 @@ impl Expression {
                 )?;
             }
             Expression::LessThanOrEqual(e1, e2) => {
-                e1.generate(stream, labels, vars)?;
+                e1.generate(stream, ctx)?;
                 writeln!(stream, "push rax")?;
-                e2.generate(stream, labels, vars)?;
+                e2.generate(stream, ctx)?;
                 writeln!(
                     stream,
                     "pop rcx\n\
@@ -259,9 +256,9 @@ impl Expression {
                 )?;
             }
             Expression::GreaterThan(e1, e2) => {
-                e1.generate(stream, labels, vars)?;
+                e1.generate(stream, ctx)?;
                 writeln!(stream, "push rax")?;
-                e2.generate(stream, labels, vars)?;
+                e2.generate(stream, ctx)?;
                 writeln!(
                     stream,
                     "pop rcx\n\
@@ -271,9 +268,9 @@ impl Expression {
                 )?;
             }
             Expression::GreaterThanOrEqual(e1, e2) => {
-                e1.generate(stream, labels, vars)?;
+                e1.generate(stream, ctx)?;
                 writeln!(stream, "push rax")?;
-                e2.generate(stream, labels, vars)?;
+                e2.generate(stream, ctx)?;
                 writeln!(
                     stream,
                     "pop rcx\n\

@@ -2,8 +2,7 @@ use crate::codegen::*;
 use crate::error::CompilerError;
 use crate::lexing::*;
 use combine::{
-    attempt, between, choice, many, many1, optional, satisfy, token, ParseError,
-    Parser, Stream,
+    attempt, between, choice, many, many1, optional, satisfy, token, ParseError, Parser, Stream,
 };
 
 pub fn parse(tokens: &[Token]) -> Result<Vec<Function>, CompilerError> {
@@ -63,7 +62,7 @@ where
         .skip(token(Token::Semicolon))
         .map(|e| Statement::Return(e));
 
-    let expression_statement = expression()
+    let expression_statement = optional(expression())
         .map(|e| Statement::Expression(e))
         .skip(token(Token::Semicolon));
 
@@ -81,13 +80,88 @@ where
         token(Token::OpenBrace),
         token(Token::CloseBrace),
         many::<Vec<_>, _>(block_item()),
-    ).map(|stms| Statement::Compound(stms));
+    )
+    .map(|stms| Statement::Compound(stms));
+
+    let for_statement = token(Token::For)
+        .with(between(
+            token(Token::OpenParen),
+            token(Token::CloseParen),
+            optional(expression())
+                .skip(token(Token::Semicolon))
+                .and(optional(expression()))
+                .skip(token(Token::Semicolon))
+                .and(optional(expression())),
+        ))
+        .and(statement())
+        .map(|(((init, cond), iter), body)| {
+            Statement::For(
+                init,
+                cond.unwrap_or(Expression::Literal(1)),
+                iter,
+                Box::new(body),
+            )
+        });
+
+    let for_decl_statement = token(Token::For)
+        .with(between(
+            token(Token::OpenParen),
+            token(Token::CloseParen),
+            declaration()
+                .skip(token(Token::Semicolon))
+                .and(optional(expression()))
+                .skip(token(Token::Semicolon))
+                .and(optional(expression())),
+        ))
+        .and(statement())
+        .map(|(((init, cond), iter), body)| {
+            Statement::ForDecl(
+                Box::new(init),
+                cond.unwrap_or(Expression::Literal(1)),
+                iter,
+                Box::new(body),
+            )
+        });
+
+    let while_statement = token(Token::While)
+        .with(between(
+            token(Token::OpenParen),
+            token(Token::CloseParen),
+            expression(),
+        ))
+        .and(statement())
+        .map(|(cond, body)| Statement::While(cond, Box::new(body)));
+
+    let do_statement = token(Token::Do)
+        .with(statement())
+        .skip(token(Token::While))
+        .and(between(
+            token(Token::OpenParen),
+            token(Token::CloseParen),
+            expression(),
+        ))
+        .skip(token(Token::Semicolon))
+        .map(|(body, cond)| Statement::Do(Box::new(body), cond));
+
+    let break_statement = token(Token::Break)
+        .skip(token(Token::Semicolon))
+        .map(|_| Statement::Break);
+
+    let continue_statement = token(Token::Continue)
+        .skip(token(Token::Semicolon))
+        .map(|_| Statement::Continue);
 
     choice((
         compound_statement,
         return_statement,
         if_statement,
+        attempt(for_decl_statement),
+        for_statement,
+        while_statement,
+        do_statement,
         expression_statement,
+        break_statement,
+        continue_statement,
     ))
 }
 

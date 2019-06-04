@@ -38,6 +38,11 @@ pub enum Token {
     Else,
     Colon,
     QuestionMark,
+    For,
+    While,
+    Do,
+    Break,
+    Continue,
 }
 
 pub fn lex(text: &str) -> Result<Vec<Token>, CompilerError> {
@@ -55,6 +60,11 @@ pub fn lex(text: &str) -> Result<Vec<Token>, CompilerError> {
                     attempt(string("return").map(|_| Token::Return)),
                     attempt(string("if").map(|_| Token::If)),
                     attempt(string("else").map(|_| Token::Else)),
+                    attempt(string("for").map(|_| Token::For)),
+                    attempt(string("while").map(|_| Token::While)),
+                    attempt(string("do").map(|_| Token::Do)),
+                    attempt(string("break").map(|_| Token::Break)),
+                    attempt(string("continue").map(|_| Token::Continue)),
                     attempt(string("++").map(|_| Token::Increment)),
                     attempt(string("--").map(|_| Token::Decrement)),
                     attempt(string("+=").map(|_| Token::AssignAdd)),
