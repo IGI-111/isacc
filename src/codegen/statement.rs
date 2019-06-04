@@ -29,8 +29,20 @@ pub enum Statement {
 impl Generator for Statement {
     fn generate(&self, stream: &mut impl Write, ctx: &mut Context) -> io::Result<()> {
         match self {
-            Statement::Break => {}
-            Statement::Continue => {}
+            Statement::Continue => {
+                writeln!(
+                    stream,
+                    "jmp {}",
+                    ctx.outer_loop().expect("No outer loop context").0
+                )?; // FIXME: doesn't always jump over body
+            }
+            Statement::Break => {
+                writeln!(
+                    stream,
+                    "jmp {}",
+                    ctx.outer_loop().expect("No outer loop context").1
+                )?;
+            }
             Statement::While(cond, body) => {
                 let beg = ctx.unique_label();
                 let end = ctx.unique_label();
@@ -43,7 +55,7 @@ impl Generator for Statement {
                      je {}",
                     end
                 )?;
-                body.generate(stream, ctx)?;
+                body.generate(stream, &mut ctx.inner_loop(beg.clone(), end.clone()))?;
                 writeln!(
                     stream,
                     "jmp {}\n\
@@ -53,19 +65,22 @@ impl Generator for Statement {
             }
             Statement::Do(body, cond) => {
                 let beg = ctx.unique_label();
+                let end = ctx.unique_label();
 
                 writeln!(stream, "{}:", beg)?;
-                body.generate(stream, ctx)?;
+                body.generate(stream, &mut ctx.inner_loop(beg.clone(), end.clone()))?;
                 cond.generate(stream, ctx)?;
                 writeln!(
                     stream,
                     "cmp rax, 0\n\
-                     jne {}",
-                    beg
+                     jne {}`\n\
+                     {}:",
+                    beg, end
                 )?;
             }
             Statement::For(init, cond, iter, body) => {
                 let beg = ctx.unique_label();
+                let cont = ctx.unique_label();
                 let end = ctx.unique_label();
 
                 if let Some(init) = init {
@@ -79,7 +94,9 @@ impl Generator for Statement {
                      je {}",
                     end
                 )?;
-                body.generate(stream, ctx)?;
+                body.generate(stream, &mut ctx.inner_loop(cont.clone(), end.clone()))?;
+
+                writeln!(stream, "{}:", cont)?;
                 if let Some(iter) = iter {
                     iter.generate(stream, ctx)?;
                 }
@@ -92,6 +109,7 @@ impl Generator for Statement {
             }
             Statement::ForDecl(init, cond, iter, body) => {
                 let beg = ctx.unique_label();
+                let cont = ctx.unique_label();
                 let end = ctx.unique_label();
 
                 init.generate(stream, ctx)?;
@@ -103,7 +121,9 @@ impl Generator for Statement {
                      je {}",
                     end
                 )?;
-                body.generate(stream, ctx)?;
+                body.generate(stream, &mut ctx.inner_loop(cont.clone(), end.clone()))?;
+
+                writeln!(stream, "{}:", cont)?;
                 if let Some(iter) = iter {
                     iter.generate(stream, ctx)?;
                 }

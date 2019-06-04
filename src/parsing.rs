@@ -108,7 +108,6 @@ where
             token(Token::OpenParen),
             token(Token::CloseParen),
             declaration()
-                .skip(token(Token::Semicolon))
                 .and(optional(expression()))
                 .skip(token(Token::Semicolon))
                 .and(optional(expression())),

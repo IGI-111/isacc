@@ -1,3 +1,4 @@
+#[derive(Debug)]
 pub struct LabelGenerator {
     next_label: usize,
 }
