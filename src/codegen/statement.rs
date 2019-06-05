@@ -178,6 +178,7 @@ impl Generator for Statement {
             Statement::Declaration(t, id, expr) => {
                 ctx.declare(id.clone(), (*t).clone());
                 if let Some(e) = expr {
+                    writeln!(stream, "sub rsp, 8")?;
                     e.generate(stream, ctx)?;
                     writeln!(stream, "mov [rbp{}], rax", ctx.offset_of(&id))?;
                 }
