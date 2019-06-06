@@ -43,6 +43,7 @@ pub enum Token {
     Do,
     Break,
     Continue,
+    Comma,
 }
 
 pub fn lex(text: &str) -> Result<Vec<Token>, CompilerError> {
@@ -88,6 +89,7 @@ pub fn lex(text: &str) -> Result<Vec<Token>, CompilerError> {
                     token('/').map(|_| Token::Divide),
                     token('=').map(|_| Token::Assign),
                     token(':').map(|_| Token::Colon),
+                    token(',').map(|_| Token::Comma),
                     token('?').map(|_| Token::QuestionMark),
                 )),
                 many1::<String, _>(digit()).map(|i| Token::Integer(i.parse().unwrap())),

@@ -2,7 +2,8 @@ use crate::codegen::*;
 use crate::error::CompilerError;
 use crate::lexing::*;
 use combine::{
-    attempt, between, choice, many, many1, optional, satisfy, token, ParseError, Parser, Stream,
+    attempt, between, choice, many, many1, optional, satisfy, sep_by, token, ParseError, Parser,
+    Stream,
 };
 
 pub fn parse(tokens: &[Token]) -> Result<Vec<Function>, CompilerError> {
@@ -19,16 +20,22 @@ where
     I: Stream<Item = Token>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    token(Token::Int)
+    typename()
         .with(identifier())
-        .skip(token(Token::OpenParen))
-        .skip(token(Token::CloseParen))
         .and(between(
-            token(Token::OpenBrace),
-            token(Token::CloseBrace),
-            many::<Vec<_>, _>(block_item()),
+            token(Token::OpenParen),
+            token(Token::CloseParen),
+            sep_by::<Vec<_>, _, _>(typename().and(identifier()), token(Token::Comma)),
         ))
-        .map(|(name, statements)| Function::new(name, statements))
+        .and(choice((
+            between(
+                token(Token::OpenBrace),
+                token(Token::CloseBrace),
+                many::<Vec<_>, _>(block_item()),
+            ).map(|args| Some(args)) ,
+            token(Token::Semicolon).map(|_| None),
+        )))
+        .map(|((name, args), statements)| Function::new(name, args, statements))
 }
 
 fn block_item<I>() -> impl Parser<Input = I, Output = Statement>
