@@ -32,7 +32,8 @@ where
                 token(Token::OpenBrace),
                 token(Token::CloseBrace),
                 many::<Vec<_>, _>(block_item()),
-            ).map(|args| Some(args)) ,
+            )
+            .map(|args| Some(args)),
             token(Token::Semicolon).map(|_| None),
         )))
         .map(|((name, args), statements)| Function::new(name, args, statements))
@@ -204,11 +205,19 @@ where
             Token::Decrement => Expression::PostDecrement(id),
             _ => unreachable!(),
         });
+    let function_call = identifier()
+        .and(between(
+            token(Token::OpenParen),
+            token(Token::CloseParen),
+            many::<Vec<_>, _>(expression()),
+        ))
+        .map(|(id, args)| Expression::FunCall(id, args));
 
     choice((
         attempt(unary_lvalue_pre),
         attempt(unary_lvalue_post),
         unary_op,
+        attempt(function_call),
         literal(),
         between(
             token(Token::OpenParen),

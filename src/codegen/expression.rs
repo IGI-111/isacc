@@ -26,6 +26,7 @@ pub enum Expression {
     GreaterThanOrEqual(Box<Expression>, Box<Expression>),
     Assignment(Identifier, Box<Expression>),
     Conditional(Box<Expression>, Box<Expression>, Box<Expression>),
+    FunCall(Identifier, Vec<Expression>),
 }
 
 impl Generator for Expression {
