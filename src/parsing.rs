@@ -1,4 +1,4 @@
-use crate::codegen::*;
+use crate::ast::*;
 use crate::error::CompilerError;
 use crate::lexing::*;
 use combine::{
@@ -6,8 +6,8 @@ use combine::{
     Stream,
 };
 
-pub fn parse(tokens: &[Token]) -> Result<Vec<Function>, CompilerError> {
-    let mut program = many1::<Vec<_>, _>(function());
+pub fn parse(tokens: &[Token]) -> Result<Program, CompilerError> {
+    let mut program = many1::<Vec<_>, _>(function()).map(|funs| Program::new(funs));
 
     match program.easy_parse(tokens) {
         Ok(ast) => Ok(ast.0),

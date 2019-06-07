@@ -1,26 +1,8 @@
-use super::{Context, Generator, Identifier, Statement, Type};
+use super::Generator;
+use super::Context;
+use crate::ast::*;
 use std::io::{self, Write};
 
-#[derive(Debug)]
-pub struct Function {
-    name: String,
-    args: Vec<(Type, Identifier)>,
-    statements: Option<Vec<Statement>>,
-}
-
-impl Function {
-    pub fn new(
-        name: String,
-        args: Vec<(Type, Identifier)>,
-        statements: Option<Vec<Statement>>,
-    ) -> Self {
-        Self {
-            name,
-            statements,
-            args,
-        }
-    }
-}
 impl Generator for Function {
     fn generate(&self, stream: &mut impl Write, ctx: &mut Context) -> io::Result<()> {
         if let Some(statements) = &self.statements {
@@ -58,6 +40,7 @@ impl Generator for Function {
                  ret"
             )?;
         } else {
+            // TODO: function prototype support
         }
         Ok(())
     }

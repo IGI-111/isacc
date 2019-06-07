@@ -6,9 +6,12 @@ mod codegen;
 mod error;
 mod lexing;
 mod parsing;
+mod validation;
+mod ast;
 
 use codegen::*;
 use lexing::*;
+use ast::*;
 use parsing::*;
 use std::env;
 use std::error::Error;
@@ -22,7 +25,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let text = read_to_string(&file)?;
         let tokens: Vec<Token> = lex(&text)?;
         println!("{:#?}", tokens);
-        let ast: Vec<Function> = parse(&tokens)?;
+        let ast: Program = parse(&tokens)?;
         println!("{:#?}", ast);
         let output_path = format!(
             "{}.s",

@@ -4,7 +4,7 @@ mod variable;
 use std::sync::{Arc, Mutex};
 use self::label::LabelGenerator;
 use self::variable::VariableMap;
-use super::{Identifier, Type};
+use crate::ast::*;
 
 pub struct Context {
     labels: Arc<Mutex<LabelGenerator>>,

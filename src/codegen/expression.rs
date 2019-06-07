@@ -1,33 +1,7 @@
-use super::{Identifier, Generator, Context};
+use super::Generator;
+use super::Context;
+use crate::ast::*;
 use std::io::{self, Write};
-
-#[derive(Debug)]
-pub enum Expression {
-    Identifier(Identifier),
-    Literal(usize),
-    Minus(Box<Expression>),
-    BinaryNot(Box<Expression>),
-    LogicalNot(Box<Expression>),
-    PreIncrement(Identifier),
-    PreDecrement(Identifier),
-    PostIncrement(Identifier),
-    PostDecrement(Identifier),
-    Subtract(Box<Expression>, Box<Expression>),
-    Add(Box<Expression>, Box<Expression>),
-    Divide(Box<Expression>, Box<Expression>),
-    Multiply(Box<Expression>, Box<Expression>),
-    And(Box<Expression>, Box<Expression>),
-    Or(Box<Expression>, Box<Expression>),
-    Equal(Box<Expression>, Box<Expression>),
-    NotEqual(Box<Expression>, Box<Expression>),
-    LessThan(Box<Expression>, Box<Expression>),
-    LessThanOrEqual(Box<Expression>, Box<Expression>),
-    GreaterThan(Box<Expression>, Box<Expression>),
-    GreaterThanOrEqual(Box<Expression>, Box<Expression>),
-    Assignment(Identifier, Box<Expression>),
-    Conditional(Box<Expression>, Box<Expression>, Box<Expression>),
-    FunCall(Identifier, Vec<Expression>),
-}
 
 impl Generator for Expression {
     fn generate(
@@ -36,6 +10,7 @@ impl Generator for Expression {
         ctx: &mut Context,
     ) -> io::Result<()> {
         match self {
+            Expression::FunCall(_, _) => {}
             Expression::Conditional(cond, exp, alt) => {
                 let alt_label = ctx.unique_label();
                 let post_conditional = ctx.unique_label();

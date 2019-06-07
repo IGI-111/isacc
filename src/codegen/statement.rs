@@ -1,30 +1,7 @@
-use super::{Context, Expression, Generator, Identifier, Type};
+use super::Generator;
+use super::Context;
+use crate::ast::*;
 use std::io::{self, Write};
-
-#[derive(Debug)]
-pub enum Statement {
-    Declaration(Type, Identifier, Option<Expression>),
-    Return(Expression),
-    Expression(Option<Expression>),
-    If(Expression, Box<Statement>, Option<Box<Statement>>),
-    Compound(Vec<Statement>),
-    For(
-        Option<Expression>,
-        Expression,
-        Option<Expression>,
-        Box<Statement>,
-    ),
-    ForDecl(
-        Box<Statement>,
-        Expression,
-        Option<Expression>,
-        Box<Statement>,
-    ),
-    While(Expression, Box<Statement>),
-    Do(Box<Statement>, Expression),
-    Break,
-    Continue,
-}
 
 impl Generator for Statement {
     fn generate(&self, stream: &mut impl Write, ctx: &mut Context) -> io::Result<()> {
