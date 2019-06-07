@@ -3,15 +3,17 @@ use std::fmt;
 
 #[derive(Debug)]
 pub enum CompilerError {
-    ParseError(String),
-    LexError(String),
+    Parser(String),
+    Lexer(String),
+    Validation(String),
 }
 
 impl fmt::Display for CompilerError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            CompilerError::ParseError(e) => write!(f, "Parse Error: {}", e),
-            CompilerError::LexError(e) => write!(f, "Lexing Error: {}", e),
+            CompilerError::Parser(e) => write!(f, "Parser Error: {}", e),
+            CompilerError::Lexer(e) => write!(f, "Lexer Error: {}", e),
+            CompilerError::Validation(e) => write!(f, "Validation Error: {}", e),
         }
     }
 }

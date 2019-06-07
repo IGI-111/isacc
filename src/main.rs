@@ -13,6 +13,7 @@ use codegen::*;
 use lexing::*;
 use ast::*;
 use parsing::*;
+use validation::*;
 use std::env;
 use std::error::Error;
 use std::fs::read_to_string;
@@ -24,9 +25,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     for file in args {
         let text = read_to_string(&file)?;
         let tokens: Vec<Token> = lex(&text)?;
-        println!("{:#?}", tokens);
         let ast: Program = parse(&tokens)?;
-        println!("{:#?}", ast);
+        validate(&ast)?;
         let output_path = format!(
             "{}.s",
             Path::new(&file)

@@ -1,4 +1,4 @@
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Type {
     Int,
 }
@@ -41,7 +41,7 @@ impl Function {
 #[derive(Debug)]
 pub enum Statement {
     Declaration(Type, Identifier, Option<Expression>),
-    Return(Expression),
+    Return(Expression), // TODO: empty return
     Expression(Option<Expression>),
     If(Expression, Box<Statement>, Option<Box<Statement>>),
     Compound(Vec<Statement>),

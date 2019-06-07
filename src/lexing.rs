@@ -101,6 +101,6 @@ pub fn lex(text: &str) -> Result<Vec<Token>, CompilerError> {
 
     match lexer.easy_parse(text) {
         Ok(tokens) => Ok(tokens.0),
-        Err(e) => Err(CompilerError::LexError(format!("{:?}", e))),
+        Err(e) => Err(CompilerError::Lexer(format!("{:?}", e))),
     }
 }

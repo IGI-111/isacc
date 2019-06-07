@@ -11,7 +11,7 @@ pub fn parse(tokens: &[Token]) -> Result<Program, CompilerError> {
 
     match program.easy_parse(tokens) {
         Ok(ast) => Ok(ast.0),
-        Err(e) => Err(CompilerError::ParseError(format!("{:?}", e))),
+        Err(e) => Err(CompilerError::Parser(format!("{:?}", e))),
     }
 }
 
