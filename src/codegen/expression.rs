@@ -1,16 +1,44 @@
-use super::Generator;
 use super::Context;
+use super::Generator;
+use super::CALLER_REGS;
 use crate::ast::*;
 use std::io::{self, Write};
 
 impl Generator for Expression {
-    fn generate(
-        &self,
-        stream: &mut impl Write,
-        ctx: &mut Context,
-    ) -> io::Result<()> {
+    fn generate(&self, stream: &mut impl Write, ctx: &mut Context) -> io::Result<()> {
         match self {
-            Expression::FunCall(_, _) => {}
+            Expression::FunCall(id, args) => {
+                let mut to_restore = Vec::new();
+                for (i, arg) in args.iter().take(6).enumerate() {
+                    arg.generate(stream, ctx)?;
+                    writeln!(
+                        stream,
+                        "push {}\n\
+                         mov {}, rax",
+                        CALLER_REGS[i], CALLER_REGS[i]
+                    )?;
+                    to_restore.push(CALLER_REGS[i]);
+                }
+
+                let mut stacked = 0;
+                for arg in args.iter().skip(6).rev() {
+                    arg.generate(stream, ctx)?;
+                    writeln!(stream, "push rax")?;
+                    stacked += 1;
+                }
+                writeln!(
+                    stream,
+                    "call {}\n\
+                     add rsp, {}",
+                    id,
+                    stacked * 8 // 64 bit offsetting
+                )?;
+
+                // restore register arguments
+                for reg in to_restore.iter().rev() {
+                    writeln!(stream, "pop {}", reg)?;
+                }
+            }
             Expression::Conditional(cond, exp, alt) => {
                 let alt_label = ctx.unique_label();
                 let post_conditional = ctx.unique_label();
@@ -27,54 +55,53 @@ impl Generator for Expression {
                     stream,
                     "jmp {}\n\
                      {}:",
-                    post_conditional,
-                    alt_label
+                    post_conditional, alt_label
                 )?;
                 alt.generate(stream, ctx)?;
                 writeln!(stream, "{}:", post_conditional)?;
             }
             Expression::PreIncrement(id) => {
-                let offset = ctx.offset_of(&id);
+                let var = ctx.resolve(&id);
                 writeln!(
                     stream,
-                    "add QWORD PTR [rbp{}], 1\n\
-                     mov rax, [rbp{}]",
-                    offset, offset
+                    "add {}, 1\n\
+                     mov rax, {}",
+                    var, var
                 )?;
             }
             Expression::PreDecrement(id) => {
-                let offset = ctx.offset_of(&id);
+                let var = ctx.resolve(&id);
                 writeln!(
                     stream,
-                    "sub QWORD PTR [rbp{}], 1\n\
-                     mov rax, [rbp{}]",
-                    offset, offset
+                    "sub {}, 1\n\
+                     mov rax, {}",
+                    var, var
                 )?;
             }
             Expression::PostIncrement(id) => {
-                let offset = ctx.offset_of(&id);
+                let var = ctx.resolve(&id);
                 writeln!(
                     stream,
-                    "mov rax, [rbp{}]\n\
-                     add QWORD PTR [rbp{}], 1",
-                    offset, offset
+                    "mov rax, {}\n\
+                     add {}, 1",
+                    var, var
                 )?;
             }
             Expression::PostDecrement(id) => {
-                let offset = ctx.offset_of(&id);
+                let var = ctx.resolve(&id);
                 writeln!(
                     stream,
-                    "mov rax, [rbp{}]\n\
-                     sub QWORD PTR [rbp{}], 1",
-                    offset, offset
+                    "mov rax, {}\n\
+                     sub {}, 1",
+                    var, var
                 )?;
             }
             Expression::Identifier(id) => {
-                writeln!(stream, "mov rax, [rbp{}]", ctx.offset_of(&id))?;
+                writeln!(stream, "mov rax, {}", ctx.resolve(&id))?;
             }
             Expression::Assignment(id, e) => {
                 e.generate(stream, ctx)?;
-                writeln!(stream, "mov [rbp{}], rax", ctx.offset_of(&id))?;
+                writeln!(stream, "mov {}, rax", ctx.resolve(&id))?;
             }
             Expression::Literal(i) => {
                 writeln!(stream, "mov rax, {}", i)?;
@@ -97,9 +124,9 @@ impl Generator for Expression {
                 )?;
             }
             Expression::Subtract(e1, e2) => {
-                e1.generate(stream, ctx)?;
-                writeln!(stream, "push rax")?;
                 e2.generate(stream, ctx)?;
+                writeln!(stream, "push rax")?;
+                e1.generate(stream, ctx)?;
                 writeln!(
                     stream,
                     "pop rcx\n\

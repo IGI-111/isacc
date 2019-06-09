@@ -6,6 +6,7 @@ use self::label::LabelGenerator;
 use self::variable::VariableMap;
 use crate::ast::*;
 
+#[derive(Debug)]
 pub struct Context {
     labels: Arc<Mutex<LabelGenerator>>,
     vars: Arc<Mutex<VariableMap>>,
@@ -17,6 +18,14 @@ impl Context {
         Self {
             labels: Arc::new(Mutex::new(LabelGenerator::new())),
             vars: Arc::new(Mutex::new(VariableMap::empty())),
+            outer_loop: None,
+        }
+    }
+
+    pub fn function_scope(&mut self, fun: &Function) -> Self {
+        Self {
+            labels: Arc::clone(&mut self.labels),
+            vars: Arc::new(Mutex::new(VariableMap::with_args(&fun.args))),
             outer_loop: None,
         }
     }
@@ -39,8 +48,8 @@ impl Context {
     pub fn unique_label(&mut self) -> String {
         self.labels.lock().unwrap().unique_label()
     }
-    pub fn offset_of(&self, id: &Identifier) -> isize {
-        self.vars.lock().unwrap().offset_of(id)
+    pub fn resolve(&self, id: &Identifier) -> String {
+        self.vars.lock().unwrap().resolve(id)
     }
     pub fn declare(&mut self, id: Identifier, t: Type) {
         self.vars.lock().unwrap().declare(id, t)

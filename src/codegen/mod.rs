@@ -24,3 +24,5 @@ impl Generator for Program {
         Ok(())
     }
 }
+
+const CALLER_REGS: [&str; 6] = [ "rdi", "rsi", "rdx", "rcx", "r8", "r9"];

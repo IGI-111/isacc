@@ -25,7 +25,7 @@ where
         .and(between(
             token(Token::OpenParen),
             token(Token::CloseParen),
-            sep_by::<Vec<_>, _, _>(typename().and(identifier()), token(Token::Comma)),
+            sep_by::<Vec<_>, _, _>(typename().and(identifier()), token(Token::Comma)), // TODO: support omitting argument names
         ))
         .and(choice((
             between(
@@ -209,7 +209,7 @@ where
         .and(between(
             token(Token::OpenParen),
             token(Token::CloseParen),
-            many::<Vec<_>, _>(expression()),
+            sep_by::<Vec<_>, _, _>(expression(), token(Token::Comma)),
         ))
         .map(|(id, args)| Expression::FunCall(id, args));
 

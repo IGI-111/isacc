@@ -157,7 +157,7 @@ impl Generator for Statement {
                 if let Some(e) = expr {
                     writeln!(stream, "sub rsp, 8")?;
                     e.generate(stream, ctx)?;
-                    writeln!(stream, "mov [rbp{}], rax", ctx.offset_of(&id))?;
+                    writeln!(stream, "mov {}, rax", ctx.resolve(&id))?;
                 }
             }
             Statement::Expression(e) => {

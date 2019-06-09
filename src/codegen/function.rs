@@ -1,5 +1,5 @@
-use super::Generator;
 use super::Context;
+use super::Generator;
 use crate::ast::*;
 use std::io::{self, Write};
 
@@ -22,14 +22,16 @@ impl Generator for Function {
                     self.name, self.name
                 )?;
             }
+
             writeln!(
                 stream,
                 "push rbp\n\
                  mov rbp, rsp"
             )?;
 
+            let mut fun_ctx = ctx.function_scope(&self);
             for s in statements.iter() {
-                s.generate(stream, ctx)?;
+                s.generate(stream, &mut fun_ctx)?;
             }
 
             writeln!(
@@ -39,8 +41,6 @@ impl Generator for Function {
                  mov rax, 0\n\
                  ret"
             )?;
-        } else {
-            // TODO: function prototype support
         }
         Ok(())
     }
