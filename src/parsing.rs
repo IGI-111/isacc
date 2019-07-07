@@ -4,14 +4,15 @@ use crate::lexing::*;
 use combine::{
     attempt, between, choice, many, many1, optional, satisfy, sep_by, token, ParseError, Parser,
     Stream,
+    stream::state::{State, SourcePosition}
 };
 
 pub fn parse(tokens: &[Token]) -> Result<Program, CompilerError> {
     let mut program = many1::<Vec<_>, _>(function()).map(|funs| Program::new(funs));
 
-    match program.easy_parse(tokens) {
+    match program.easy_parse(State::new(tokens)) {
         Ok(ast) => Ok(ast.0),
-        Err(e) => Err(CompilerError::Parser(format!("{:?}", e))),
+        Err(e) => Err(CompilerError::Parser(format!("{:?}", e.errors), e.position)),
     }
 }
 

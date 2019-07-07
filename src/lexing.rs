@@ -1,6 +1,7 @@
 use crate::error::CompilerError;
 use combine::char::{alpha_num, digit, spaces, string};
 use combine::{attempt, optional, choice, eof, many1, sep_end_by1, token, Parser};
+use combine::stream::state::State;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
@@ -22,8 +23,7 @@ pub enum Token {
     And,
     Or,
     Equal,
-    NotEqual,
-    LessThan,
+    NotEqual, LessThan,
     LessThanOrEqual,
     GreaterThan,
     GreaterThanOrEqual,
@@ -99,8 +99,8 @@ pub fn lex(text: &str) -> Result<Vec<Token>, CompilerError> {
         ))
         .skip(eof());
 
-    match lexer.easy_parse(text) {
+    match lexer.easy_parse(State::new(text)) {
         Ok(tokens) => Ok(tokens.0),
-        Err(e) => Err(CompilerError::Lexer(format!("{:?}", e))),
+        Err(e) => Err(CompilerError::Lexer(format!("{:?}", e.errors), e.position)),
     }
 }
