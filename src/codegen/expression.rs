@@ -1,6 +1,4 @@
-use super::Context;
-use super::Generator;
-use super::CALLER_REGS;
+use super::{Context, Generator, Constant, CALLER_REGS};
 use crate::ast::*;
 use std::io::{self, Write};
 
@@ -284,5 +282,10 @@ impl Generator for Expression {
             }
         }
         Ok(())
+    }
+}
+
+impl Constant for Expression {
+    fn eval<T>(&self) -> T {
     }
 }

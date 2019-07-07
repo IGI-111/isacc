@@ -2,12 +2,21 @@ use crate::ast::*;
 use crate::error::CompilerError;
 use crate::lexing::*;
 use combine::{
-    attempt, between, choice, many, many1, optional, satisfy, sep_by, token, ParseError, Parser,
-    Stream,
+    attempt, between, choice, many, optional, satisfy, sep_by, token, ParseError, Parser, Stream,
 };
 
 pub fn parse(tokens: &[Token]) -> Result<Program, CompilerError> {
-    let mut program = many1::<Vec<_>, _>(function()).map(|funs| Program::new(funs));
+    let mut program = many::<Vec<_>, _>(top_level_item()).map(|tls| {
+        let mut funs = Vec::new();
+        let mut globals = Vec::new();
+        for tl in tls.into_iter() {
+            match tl {
+                TopLevel::Function(f) => funs.push(f),
+                TopLevel::Global(t, id, expr) => globals.push((t, id, expr)),
+            }
+        }
+        Program::new(funs, globals)
+    });
 
     match program.easy_parse(tokens) {
         Ok(ast) => Ok(ast.0),
@@ -39,15 +48,31 @@ where
         .map(|((name, args), statements)| Function::new(name, args, statements))
 }
 
+enum TopLevel {
+    Function(Function),
+    Global(Type, Identifier, Option<Expression>),
+}
+
+fn top_level_item<I>() -> impl Parser<Input = I, Output = TopLevel>
+where
+    I: Stream<Item = Token>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    choice((
+        attempt(declaration()).map(|(t, id, expr)| TopLevel::Global(t, id, expr)),
+        function().map(|f| TopLevel::Function(f)),
+    ))
+}
+
 fn block_item<I>() -> impl Parser<Input = I, Output = Statement>
 where
     I: Stream<Item = Token>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
 {
-    choice((declaration(), statement()))
+    choice((declaration_statement(), statement()))
 }
 
-fn declaration<I>() -> impl Parser<Input = I, Output = Statement>
+fn declaration<I>() -> impl Parser<Input = I, Output = (Type, Identifier, Option<Expression>)>
 where
     I: Stream<Item = Token>,
     I::Error: ParseError<I::Item, I::Range, I::Position>,
@@ -56,7 +81,15 @@ where
         .and(identifier())
         .and(optional(token(Token::Assign).with(expression())))
         .skip(token(Token::Semicolon))
-        .map(|((t, id), expr)| Statement::Declaration(t, id, expr))
+        .map(|((t, id), expr)| (t, id, expr))
+}
+
+fn declaration_statement<I>() -> impl Parser<Input = I, Output = Statement>
+where
+    I: Stream<Item = Token>,
+    I::Error: ParseError<I::Item, I::Range, I::Position>,
+{
+    declaration().map(|(t, id, expr)| Statement::Declaration(t, id, expr))
 }
 
 parser! { fn statement[I]()(I) -> Statement where [I: Stream<Item = Token>] { statement_() }}
@@ -115,7 +148,7 @@ where
         .with(between(
             token(Token::OpenParen),
             token(Token::CloseParen),
-            declaration()
+            declaration_statement()
                 .and(optional(expression()))
                 .skip(token(Token::Semicolon))
                 .and(optional(expression())),

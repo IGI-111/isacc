@@ -8,14 +8,14 @@ pub type Identifier = String;
 #[derive(Debug)]
 pub struct Program {
     pub funs: Vec<Function>,
+    pub globals: Vec<(Type, Identifier, Option<Expression>)>,
 }
 
 impl Program {
-    pub fn new(funs: Vec<Function>) -> Self {
-        Self { funs }
+    pub fn new(funs: Vec<Function>, globals: Vec<(Type, Identifier, Option<Expression>)>) -> Self {
+        Self { funs, globals }
     }
 }
-
 
 #[derive(Debug)]
 pub struct Function {
